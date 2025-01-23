@@ -1,0 +1,13 @@
+[sql.postgres.post1]
+addr = ""
+port = ""
+user = ""
+password = ""
+dbname = ""
+
+[sql.scylla.scylla1]
+addr = ""
+port = ""
+user = ""
+password = ""
+dbname = ""

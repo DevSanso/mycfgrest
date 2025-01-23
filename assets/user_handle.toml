@@ -1,0 +1,27 @@
+[handle.request]
+method = "post"
+content_type = ["encoding/json"]
+
+[handle.request.query_string]
+user_id = {type = "int", symbol="req_user_id"}
+user_name = {type = "string", symbol="user_name"}
+
+[handle.request.body]
+passwd = {type = "string", key="user.passwd", symbol="req_user_passwd"}
+
+
+[handle.load.0]
+type = "sql"
+load_name = "db1"
+command = "select #user_name from user where user_id = #{req_user_id}"
+get_data = {0 = {type = "int", symbol="sql_user_name"}}
+
+
+[handle.reponse]
+content_type = "encoding/json"
+template = """
+{
+    'name' : '#{0.sql_user_name}',
+    '##sql_user_name': '##{0.sql_user_name}'
+}
+"""
