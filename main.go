@@ -1,11 +1,13 @@
 package main
 
 import (
+	"net/http"
 	"os"
 
-	"golang.org/x/exp/slog"
 	"mycfgrest/global"
 	"mycfgrest/loader/handle"
+
+	"golang.org/x/exp/slog"
 )
 
 func main() {
@@ -27,6 +29,7 @@ func main() {
 	globalErr := global.Init(&global.GlobalOptions{
 		HandleDir: args.HandleDir,
 		HandleType: handle.HandleTypeToml,
+		ConnConf: args.ConnCfgPath,
 	})
 
 	if globalErr != nil {
@@ -34,4 +37,6 @@ func main() {
 		os.Exit(2)
 	}
 	
+	http.HandleFunc("/", httpRootHandleFunc)
+	http.ListenAndServe(args.BindAddrPort, nil)
 }

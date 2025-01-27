@@ -1,6 +1,8 @@
 package handle
 
 type handleMetaData struct {
+	Url string `toml:"url"`
+	
 	Request struct {
 		Method      string   `toml:"method"`
 		ContentType []string `toml:"content_type"`

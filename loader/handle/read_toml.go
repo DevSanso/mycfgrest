@@ -14,5 +14,3 @@ func readTomlHandleCfg(data []byte) (*HandleMeta, error) {
 
 	return meta, nil
 }
-
-var Resd = readTomlHandleCfg

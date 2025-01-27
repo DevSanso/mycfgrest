@@ -8,8 +8,11 @@ import (
 )
 
 var (
+	ErrorSys = errors.New("sys error")
 	ErrorNoData = errors.New("no data")
 	ErrorDuplicate = errors.New("duplicate")
+	ErrorHttpBadRequest = errors.New("http bad request")
+	ErrorLock = errors.New("lock error")
 )
 
 type AppError struct {

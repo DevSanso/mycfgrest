@@ -11,6 +11,7 @@ type Args struct {
 	HandleDir string
 
 	ConnCfgPath string
+	BindAddrPort string
 }
 
 func NewArgs() (*Args, error) {
@@ -20,6 +21,7 @@ func NewArgs() (*Args, error) {
 	flag.StringVar(&args.LogLevel, "log-level", "", "log level")
 	flag.StringVar(&args.HandleDir, "handle_dir", "", "handle dir path")
 	flag.StringVar(&args.ConnCfgPath, "conn-cfg-path", "", "connection cfg file path")
+	flag.StringVar(&args.BindAddrPort, "bind-address-port", "0.0.0.0:8080", "bind address and port (ex: 0.0.0.0:8080)")
 
 	flag.Parse()
 

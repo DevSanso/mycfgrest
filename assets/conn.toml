@@ -5,7 +5,7 @@ user = ""
 password = ""
 dbname = ""
 
-[sql.scylla.scylla1]
+[sql.sqlite.sqlite1]
 addr = ""
 port = ""
 user = ""
