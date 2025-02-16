@@ -1,12 +1,12 @@
 package handle
 
-import (	
+import (
 	"os"
 	"path"
 
 	"golang.org/x/exp/maps"
 
-	"mycfgrest/app_error"
+	"mycfgrest/types"
 )
 
 type HandleMetaType int
@@ -21,17 +21,17 @@ type HandleLoaderUtil struct {
 	loaderType HandleMetaType
 }
 
-func NewLoaderUtils(dir string, loaderType HandleMetaType) (*HandleLoaderUtil, *app_error.AppError) {
+func NewLoaderUtils(dir string, loaderType HandleMetaType) (*HandleLoaderUtil, *types.AppError) {
 	sub_file, err := os.ReadDir(dir)
 	if err != nil {
-		return nil, app_error.NewError(err, "loader utils read failed [dir:%s]", dir)
+		return nil, types.NewAppError(err, "loader utils read failed [dir:%s]", dir)
 	}
 
 	lu := new(HandleLoaderUtil)
 	for _, f := range sub_file {
 		info, infoErr := f.Info()
 		if infoErr != nil {
-			return nil, app_error.NewError(infoErr, "loader utils read file info failed [dir:%s]", f.Name())
+			return nil, types.NewAppError(infoErr, "loader utils read file info failed [dir:%s]", f.Name())
 		}
 
 		if info.IsDir() {
@@ -82,7 +82,7 @@ func (*HandleLoaderUtil) checkSymbolDuplicate(m *HandleMeta) (bool, string, stri
 	return false, "", "", ""
 }
 
-func (lu *HandleLoaderUtil) Next() (*HandleMeta, *app_error.AppError) {
+func (lu *HandleLoaderUtil) Next() (*HandleMeta, *types.AppError) {
 	if lu.currentIdx >= len(lu.fileList) {
 		return nil, nil
 	}
@@ -91,7 +91,7 @@ func (lu *HandleLoaderUtil) Next() (*HandleMeta, *app_error.AppError) {
 
 	data, readErr := os.ReadFile(p)
 	if readErr != nil {
-		return nil, app_error.NewError(readErr, "read meta data failed [file:%s] [type:%d]", p, lu.loaderType)
+		return nil, types.NewAppError(readErr, "read meta data failed [file:%s] [type:%d]", p, lu.loaderType)
 	}
 	var meta *HandleMeta
 	var metaErr error
@@ -101,11 +101,11 @@ func (lu *HandleLoaderUtil) Next() (*HandleMeta, *app_error.AppError) {
 	}
 
 	if metaErr != nil {
-		return nil, app_error.NewError(metaErr, "parsing meta data failed [file:%s] [type:%d]", p, lu.loaderType)
+		return nil, types.NewAppError(metaErr, "parsing meta data failed [file:%s] [type:%d]", p, lu.loaderType)
 	}
 
 	if is_dup, s1, s2, s3 := lu.checkSymbolDuplicate(meta); is_dup {
-		return nil, app_error.NewError(app_error.ErrorDuplicate, 
+		return nil, types.NewAppError(types.ErrorAppDuplicate,
 			"duplicate [s1:%s, s2:%s, s3:%s]", s1, s2, s3)
 
 	}

@@ -4,18 +4,18 @@ import (
 	"net/http"
 
 	"mycfgrest/loader/handle"
-	"mycfgrest/app_error"
+	"mycfgrest/types"
 )
 
 type HttpRoot struct {
 	mux http.ServeMux
 }
 
-func NewHttpRoot(li []*handle.HandleMeta) (HttpRoot, *app_error.AppError){
+func NewHttpRoot(li []*handle.HandleMeta) (HttpRoot, *types.AppError) {
 	ret := HttpRoot{}
 
 	for _, m := range li {
-		ret.mux.Handle(m.Data.Url,newHttpHandle(m))
+		ret.mux.Handle(m.Data.Url, newHttpHandle(m))
 	}
 
 	return ret, nil

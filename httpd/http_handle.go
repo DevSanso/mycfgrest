@@ -3,9 +3,10 @@ package httpd
 import (
 	"net/http"
 	"strconv"
+
 	"golang.org/x/exp/slog"
 
-	"mycfgrest/app_error"
+	"mycfgrest/types"
 	"mycfgrest/loader/handle"
 )
 
@@ -16,6 +17,7 @@ const (
 type httpHandle struct {
 	meta *handle.HandleMeta
 }
+
 // ServeHTTP implements http.Handler.
 func (h *httpHandle) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := h.preCheck(r); err != nil {
@@ -26,7 +28,7 @@ func (h *httpHandle) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	value := NewParsingValue()
+	value := types.NewParsingValue()
 
 	if err := h.getRequestUrlData(r, value); err != nil {
 		slog.Error(err.Error())
@@ -44,43 +46,41 @@ func (h *httpHandle) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-
-
 }
 
-func (h *httpHandle) preCheck(r *http.Request) *app_error.AppError {
+func (h *httpHandle) preCheck(r *http.Request) *types.AppError {
 	t := r.Header.Get("Content-Type")
 
 	if t != "encoding/json" {
-		return app_error.NewError(app_error.ErrorHttpBadRequest, "content-type not support %s", t)
+		return types.NewAppError(types.ErrorAppHttpBadRequest, "content-type not support %s", t)
 	}
 
 	return nil
 }
 
-func (h *httpHandle) getRequestUrlData(r *http.Request, pVal *ParsingValue) *app_error.AppError {
+func (h *httpHandle) getRequestUrlData(r *http.Request, pVal *types.ParsingValue) *types.AppError {
 	qUrl := r.URL.Query()
 
 	for k, val := range h.meta.Data.Request.QueryString {
 		data := qUrl.Get(k)
-		
+
 		if data != "" {
-			pVal.Push(val.Symbol, data, ParsingValueDataType(val.Type))
+			pVal.Push(val.Symbol, data, types.ParsingValueDataType(val.Type))
 		}
 	}
 
 	return nil
 }
 
-func (h *httpHandle) getRequestBodyData(r *http.Request, pVal *ParsingValue) *app_error.AppError {
+func (h *httpHandle) getRequestBodyData(r *http.Request, pVal *types.ParsingValue) *types.AppError {
 	cLen := r.Header.Get("Content-Length")
 	if cLen == "" {
-		return app_error.NewError(app_error.ErrorHttpBadRequest, "content-length is not setting")
+		return types.NewAppError(types.ErrorAppHttpBadRequest, "content-length is not setting")
 	}
 
 	cLenCast, castErr := strconv.Atoi(cLen)
 	if castErr != nil {
-		return app_error.NewError(castErr, "content-length cast error")
+		return types.NewAppError(castErr, "content-length cast error")
 	}
 
 	m := make(map[string]any)
@@ -98,7 +98,7 @@ func (h *httpHandle) getRequestBodyData(r *http.Request, pVal *ParsingValue) *ap
 		}
 
 		if readErr != nil {
-			return app_error.NewError(readErr, "request read failed")
+			return types.NewAppError(readErr, "request read failed")
 		}
 		var parsingErr error = nil
 
@@ -109,18 +109,18 @@ func (h *httpHandle) getRequestBodyData(r *http.Request, pVal *ParsingValue) *ap
 		}
 
 		if parsingErr != nil {
-			return app_error.NewError(parsingErr, "request read failed, parsing")
+			return types.NewAppError(parsingErr, "request read failed, parsing")
 		}
 	}
 
 	for k, val := range h.meta.Data.Request.Body {
 		data := m[k]
-		
+
 		if data != nil {
-			pVal.Push(val.Symbol, data, ParsingValueDataType(val.Type))
+			pVal.Push(val.Symbol, data, types.ParsingValueDataType(val.Type))
 		}
 	}
-	
+
 	return nil
 }
 

@@ -1,4 +1,4 @@
-package app_error
+package types
 
 import (
 	"errors"
@@ -8,11 +8,11 @@ import (
 )
 
 var (
-	ErrorSys = errors.New("sys error")
-	ErrorNoData = errors.New("no data")
-	ErrorDuplicate = errors.New("duplicate")
-	ErrorHttpBadRequest = errors.New("http bad request")
-	ErrorLock = errors.New("lock error")
+	ErrorAppSys = errors.New("sys error")
+	ErrorAppNoData = errors.New("no data")
+	ErrorAppDuplicate = errors.New("duplicate")
+	ErrorAppHttpBadRequest = errors.New("http bad request")
+	ErrorAppLock = errors.New("lock error")
 )
 
 type AppError struct {
@@ -50,7 +50,7 @@ func (a *AppError)PushError(origin error, subMsgFmt string, args ...any) {
 	a.msgs = append(a.msgs, msg)
 }
 
-func NewError(origin error, subMsgFmt string, args ...any) *AppError {
+func NewAppError(origin error, subMsgFmt string, args ...any) *AppError {
 	pc, file,line, ok := runtime.Caller(1)
 	
 	msg_list := make([]string, 0)
