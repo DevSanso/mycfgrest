@@ -10,6 +10,7 @@ const (
 	INT    ParsingValueDataType = "int"
 	STRING ParsingValueDataType = "string"
 	DOUBLE ParsingValueDataType = "double"
+	NULL ParsingValueDataType = "NULL"
 )
 
 type ParsingValue struct {
