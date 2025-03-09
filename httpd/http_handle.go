@@ -2,7 +2,6 @@ package httpd
 
 import (
 	"net/http"
-	"strconv"
 
 	"golang.org/x/exp/slog"
 
@@ -28,9 +27,9 @@ func (h *httpHandle) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	value := types.NewParsingValue()
+	value := types.NewParsingMap()
 
-	if err := h.getRequestUrlData(r, value); err != nil {
+	if err := getRequestUrlData(h, r, value); err != nil {
 		slog.Error(err.Error())
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
@@ -38,7 +37,7 @@ func (h *httpHandle) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.getRequestBodyData(r, value); err != nil {
+	if err := getRequestBodyData(h, r, value); err != nil {
 		slog.Error(err.Error())
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
@@ -58,71 +57,7 @@ func (h *httpHandle) preCheck(r *http.Request) *types.AppError {
 	return nil
 }
 
-func (h *httpHandle) getRequestUrlData(r *http.Request, pVal *types.ParsingValue) *types.AppError {
-	qUrl := r.URL.Query()
 
-	for k, val := range h.meta.Data.Request.QueryString {
-		data := qUrl.Get(k)
-
-		if data != "" {
-			pVal.Push(val.Symbol, data, types.ParsingValueDataType(val.Type))
-		}
-	}
-
-	return nil
-}
-
-func (h *httpHandle) getRequestBodyData(r *http.Request, pVal *types.ParsingValue) *types.AppError {
-	cLen := r.Header.Get("Content-Length")
-	if cLen == "" {
-		return types.NewAppError(types.ErrorAppHttpBadRequest, "content-length is not setting")
-	}
-
-	cLenCast, castErr := strconv.Atoi(cLen)
-	if castErr != nil {
-		return types.NewAppError(castErr, "content-length cast error")
-	}
-
-	m := make(map[string]any)
-
-	{
-		var readErr error = nil
-		var preAllocBuffer [preAllocRequestBodySize]byte
-		var allocBuffer []byte = nil
-
-		if cLenCast < preAllocRequestBodySize {
-			_, readErr = r.Body.Read(preAllocBuffer[:])
-		} else {
-			allocBuffer = make([]byte, cLenCast)
-			_, readErr = r.Body.Read(allocBuffer)
-		}
-
-		if readErr != nil {
-			return types.NewAppError(readErr, "request read failed")
-		}
-		var parsingErr error = nil
-
-		if cLenCast < preAllocRequestBodySize {
-			parsingErr = parsingBody(preAllocBuffer[:], m)
-		} else {
-			parsingErr = parsingBody(allocBuffer, m)
-		}
-
-		if parsingErr != nil {
-			return types.NewAppError(parsingErr, "request read failed, parsing")
-		}
-	}
-
-	for k, val := range h.meta.Data.Request.Body {
-		data := m[k]
-
-		if data != nil {
-			pVal.Push(val.Symbol, data, types.ParsingValueDataType(val.Type))
-		}
-	}
-
-	return nil
-}
 
 func newHttpHandle(meta *handle.HandleMeta) *httpHandle {
 	return &httpHandle{

@@ -3,6 +3,8 @@ package conn
 import (
 	"context"
 	"database/sql"
+	"strconv"
+	"strings"
 
 	"mycfgrest/conn/utils"
 	"mycfgrest/types"
@@ -33,54 +35,73 @@ func convertPgTypeToSysType(cts []*sql.ColumnType) ([]types.ParsingValueDataType
 	return ret, nil
 }
 
-func (pc *pgConn) Run(ctx context.Context, cmd string, param *types.ParsingValue) (*types.ParsingResultSet, error) {
-	realQuery, realParam, changeErr := utils.ChangeSqlToNumBindSupportSql(cmd, param)
+func (pc *pgConn) runEach(ctx context.Context, cmd string, prefix string, fetch *types.ParsingMapFetch, output *types.ParsingMap) error {
+	realQuery, realParam, changeErr := utils.ChangeSqlToNumBindSupportSql(cmd, fetch)
 
 	if changeErr != nil {
-		return nil, types.NewAppError(changeErr, "failed change real querys")
+		return types.NewAppError(changeErr, "failed change real querys")
 	}
 
 	rows, rowsErr := pc.db.QueryContext(ctx, realQuery, realParam...)
 	if rowsErr != nil {
-		return nil, types.NewAppError(rowsErr, "failed pg connection run query")
+		return types.NewAppError(rowsErr, "failed pg connection run query")
 	}
 	defer rows.Close()
 
 	cName, cErr := rows.Columns() 
 	if cErr != nil {
-		return nil, types.NewAppError(cErr, "get failed cols names")
+		return types.NewAppError(cErr, "get failed cols names")
 	}
 
 	ct, ctErr := rows.ColumnTypes()
 	if ctErr != nil {
-		return nil, types.NewAppError(ctErr, "get failed column types")
+		return types.NewAppError(ctErr, "get failed column types")
 	}
 	
 	sysType, convertErr := convertPgTypeToSysType(ct)
 
 	if convertErr != nil {
-		return nil, types.NewAppError(convertErr, "failed convert pg type to sys type")
+		return types.NewAppError(convertErr, "failed convert pg type to sys type")
 	}
 
 	colBuffer := utils.NewColOutBuffer(sysType)
-	output := types.NewParsingResultSet(sysType);
 
 	rowIdx := 0
 	for rows.Next() {
 		if err := rows.Scan(colBuffer.GetPtrs()...); err != nil {
-			return nil, types.NewAppError(err, "failed scan row data")
+			return types.NewAppError(err, "failed scan row data")
 		}
 
 		datas := colBuffer.GetDatas()
 
 		for idx := range datas {
-			if err := output.Set(cName[idx], rowIdx, datas[idx], sysType[idx]); err != nil {
-				return nil, types.NewAppError(err, "failed result set push data [name:%s] [idx:%d]", cName[idx], rowIdx)
+			if err := output.Set(rowIdx, strings.Join([]string{prefix, strconv.Itoa(idx), cName[idx]},"."), datas[idx], sysType[idx]); err != nil {
+				return types.NewAppError(err, "failed result set push data [name:%s] [idx:%d]", cName[idx], rowIdx)
 			}
 		}
 		rowIdx += 1	
 	}
 
+	return nil
+}
+
+func (pc *pgConn) Run(ctx context.Context, cmd string, param *types.ParsingMap) (*types.ParsingMap, error) {
+	output := types.NewParsingMap()
+	var fetch *types.ParsingMapFetch = nil
+	var err error = nil
+
+	if fetch, err = param.Fetch(); err != nil {
+		return nil, types.NewAppError(types.ErrorAppSys, "pgConn Run Failed")
+	}
+
+	idx := 0
+	for isEnd := fetch.IsEnd(); !isEnd; isEnd = fetch.Next() {
+		if err = pc.runEach(ctx, cmd, strconv.Itoa(idx), fetch, output); err != nil {
+			return nil, types.NewAppError(err, "")
+		}
+		idx += 1
+	}
+	
 	return output, nil
 }
 

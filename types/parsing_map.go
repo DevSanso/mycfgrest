@@ -4,6 +4,15 @@ import (
 	"sync/atomic"
 )
 
+type ParsingValueDataType string
+
+const (
+	INT    ParsingValueDataType = "int"
+	STRING ParsingValueDataType = "string"
+	DOUBLE ParsingValueDataType = "double"
+	NULL ParsingValueDataType = "NULL"
+)
+
 const (
 	_ParsingMapStateNone  = iota << 1
 	_ParsingMapStateFetch
@@ -86,6 +95,24 @@ func (o *ParsingMap) Fetch() (*ParsingMapFetch,error) {
 	}, nil
 }
 
+func (o *ParsingMap) FetchOne(idx int) (*ParsingMapFetch,error) {
+	if mapLen := len(o.mapDatas); mapLen >= idx {
+		atomic.StoreInt32(&o.state, _ParsingMapStateNone)
+		return nil, NewAppError(ErrorAppSys, "Get Idx(%d) overflow map length(%d)", idx, mapLen)
+	}
+	
+	if state := atomic.LoadInt32(&o.state); state != _ParsingMapStateNone  {
+		return nil, NewAppError(ErrorAppSys, "ParsingMap Fetch failed state:%d", state)
+	}
+	atomic.StoreInt32(&o.state, _ParsingMapStateFetch)
+	
+	return &ParsingMapFetch{
+		mapPtr: o,
+		currentIdx: idx,
+		endIdx: idx + 1,
+	}, nil
+}
+
 type ParsingMapFetch struct {
 	mapPtr *ParsingMap
 
@@ -100,7 +127,38 @@ func (f *ParsingMapFetch) Close() error {
 	return nil
 }
 
-func (f *ParsingMapFetch) Next() (key []string, val []any, valType []ParsingValueDataType, err error) {
+func (f *ParsingMapFetch) Next() (isEnd bool) {
+	if f.currentIdx >= f.endIdx {
+		isEnd = true
+		return 
+	}
+	isEnd = false
+	f.currentIdx += 1
+	return 
+}
+
+func (f *ParsingMapFetch) IsEnd() (isEnd bool) {
+	if f.currentIdx >= f.endIdx {
+		isEnd = true
+		return 
+	}
+	isEnd = false
+	return 
+}
+
+func (f *ParsingMapFetch) Reset(idx int) (isEnd bool) {
+	if idx >= f.endIdx {
+		isEnd = true
+		return 
+	}
+	isEnd = false
+	f.currentIdx = idx
+	return 
+}
+
+
+
+func (f *ParsingMapFetch) GetData() (key []string, val []any, valType []ParsingValueDataType, err error) {
 	if f.currentIdx >= f.endIdx {
 		return nil, nil, nil, nil
 	}
@@ -121,7 +179,5 @@ func (f *ParsingMapFetch) Next() (key []string, val []any, valType []ParsingValu
 		fetchIdx += 1
 	}
 	err = nil
-	f.currentIdx += 1
 	return 
 }
-

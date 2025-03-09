@@ -9,20 +9,16 @@ import (
 	"mycfgrest/types"
 )
 
-func ChangeSqlToNumBindSupportSql(sql string, p *types.ParsingValue) (query string, param []any, err *types.AppError) {
-	fetch, err := p.Fetch()
+func ChangeSqlToNumBindSupportSql(sql string, p *types.ParsingMapFetch) (query string, param []any, err error) {
+	keys,vals, _, err := p.GetData()
 	if err != nil {
 		return "", nil, types.NewAppError(err, "parsing value is fetch error")
 	}
 
-	keys := make([]string, fetch.FullSize())
-	vals := make([]any, fetch.FullSize())
-
-	fetch.Keys(keys)
-	fetch.Values(vals)
-
-	fetch.Close()
-
+	if keys == nil || vals == nil {
+		return "", nil, types.NewAppError(types.ErrorAppSys, "no data")
+	}
+	
 	var buffer bytes.Buffer
 	lastIndex := 0
 
@@ -39,8 +35,10 @@ func ChangeSqlToNumBindSupportSql(sql string, p *types.ParsingValue) (query stri
 				end := strings.IndexByte(sql[i:], '}')
 				if end != -1 {
 					end += i
-					key := sql[i+2 : end]
+					key := ""
 
+					key = sql[i+2 : end]
+					
 					if idx := slices.Index(keys, key); idx != -1 {
 						buffer.WriteString(sql[lastIndex:i])
 						buffer.WriteString(fmt.Sprintf("$%d", idx+1))
@@ -57,19 +55,15 @@ func ChangeSqlToNumBindSupportSql(sql string, p *types.ParsingValue) (query stri
 	return buffer.String(), vals, nil
 }
 
-func ChangeSqlToQuestionMarkBindSupportSql(sql string, p *types.ParsingValue) (query string, param []any, err *types.AppError) {
-	fetch, err := p.Fetch()
+func ChangeSqlToQuestionMarkBindSupportSql(sql string, p *types.ParsingMapFetch) (query string, param []any, err error) {
+	keys,vals, _, err := p.GetData()
 	if err != nil {
 		return "", nil, types.NewAppError(err, "parsing value is fetch error")
 	}
 
-	keys := make([]string, fetch.FullSize())
-	vals := make([]any, fetch.FullSize())
-
-	fetch.Values(vals)
-	fetch.Keys(keys)
-
-	fetch.Close()
+	if keys == nil || vals == nil {
+		return "", nil, types.NewAppError(types.ErrorAppSys, "no data")
+	}
 
 	var buffer bytes.Buffer
 	lastIndex := 0
@@ -87,7 +81,9 @@ func ChangeSqlToQuestionMarkBindSupportSql(sql string, p *types.ParsingValue) (q
 				end := strings.IndexByte(sql[i:], '}')
 				if end != -1 {
 					end += i
-					key := sql[i+2 : end]
+					key := ""
+
+					key = sql[i+2 : end]
 
 					if exists := slices.Index(keys, key) != -1; exists {
 						buffer.WriteString(sql[lastIndex:i])

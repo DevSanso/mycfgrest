@@ -6,5 +6,5 @@ import (
 )
 
 type Conn interface {
-	Run(ctx context.Context, cmd string, param *types.ParsingValue) (*types.ParsingResultSet, error)
+	Run(ctx context.Context, cmd string, param *types.ParsingMap) (*types.ParsingMap, error)
 }

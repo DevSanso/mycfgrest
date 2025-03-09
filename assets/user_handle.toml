@@ -16,7 +16,7 @@ passwd = {type = "string", key="user.passwd", symbol="req_user_passwd"}
 [handle.load.0]
 type = "sql"
 load_name = "db1"
-command = "select #{user_name} from user where user_id = #{req_user_id}"
+command = "select #{request.query_string.user_name} from user where user_id = #{request.body.req_user_id}"
 get_data = {0 = {type = "int", symbol="sql_user_name"}}
 
 
@@ -24,7 +24,7 @@ get_data = {0 = {type = "int", symbol="sql_user_name"}}
 content_type = "encoding/json"
 template = """
 {
-    'name' : '#{0.sql_user_name}',
-    '##sql_user_name': '##{0.sql_user_name}'
+    'name' : '#{0.0.sql_user_name}',
+    '##sql_user_name': '##{0.0.sql_user_name}'
 }
 """

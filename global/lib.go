@@ -30,10 +30,13 @@ func initSqlPool(meta *conn.ConnMeta) *types.AppError {
 		db, dbErr := sql.Open("postgres", connStr)
 
 		if dbErr != nil {
-			types.NewAppError(dbErr, "init postgresql pool failed [ip:%s]", v.Addr)
+			return types.NewAppError(dbErr, "init postgresql pool failed [ip:%s]", v.Addr)
 		}
-
-		global.sqlPool[fmt.Sprintf("sql.postgres.%s", k)] = db
+		if _, ok := global.sqlPool[k]; ok {
+			return types.NewAppError(types.ErrorAppDuplicate,"duplicate sqlpool name=%s", k)
+		}
+		global.sqlPool[k] = db
+		
 	}
 
 	for k, v := range meta.Sql.Sqlite {
@@ -41,8 +44,10 @@ func initSqlPool(meta *conn.ConnMeta) *types.AppError {
 		if dbErr != nil {
 			types.NewAppError(dbErr, "init sqlite pool failed [ip:%s]", v.Addr)
 		}
-
-		global.sqlPool[fmt.Sprintf("sql.sqlite.%s", k)] = db
+		if _, ok := global.sqlPool[k]; ok {
+			return types.NewAppError(types.ErrorAppDuplicate,"duplicate sqlpool name=%s", k)
+		}
+		global.sqlPool[k] = db
 	}
 
 	return nil
