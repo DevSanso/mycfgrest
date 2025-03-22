@@ -1,27 +1,48 @@
 package global
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
+	"sync"
 
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 
+	c "mycfgrest/conn"
 	"mycfgrest/loader/conn"
 	"mycfgrest/loader/handle"
 	"mycfgrest/types"
 )
 
 var global struct {
-	handles []*handle.HandleMeta
-
-	sqlPool map[string]*sql.DB
+	initOnce sync.Once
+	handleMetasIdx map[string]int
+	handleMetas   []handle.HandleMeta
+	sqlPool map[string]c.SQLConn
 }
 
 type GlobalOptions struct {
 	HandleDir  string
 	ConnConf   string
 	HandleType handle.HandleMetaType
+}
+
+func GetHandleMetaRerf(url string) *handle.HandleMeta {
+	idx, ok := global.handleMetasIdx[url]
+	if !ok {
+		return nil
+	}
+
+	return &global.handleMetas[idx]
+}
+
+func GetSqlPool(name string, ctx context.Context) (c.SQLConn) {
+	p, ok := global.sqlPool[name]
+	if !ok {
+		return nil
+	}
+	return p
 }
 
 func initSqlPool(meta *conn.ConnMeta) *types.AppError {
@@ -35,7 +56,7 @@ func initSqlPool(meta *conn.ConnMeta) *types.AppError {
 		if _, ok := global.sqlPool[k]; ok {
 			return types.NewAppError(types.ErrorAppDuplicate,"duplicate sqlpool name=%s", k)
 		}
-		global.sqlPool[k] = db
+		global.sqlPool[k] = c.NewPgConn(db)
 		
 	}
 
@@ -47,44 +68,62 @@ func initSqlPool(meta *conn.ConnMeta) *types.AppError {
 		if _, ok := global.sqlPool[k]; ok {
 			return types.NewAppError(types.ErrorAppDuplicate,"duplicate sqlpool name=%s", k)
 		}
-		global.sqlPool[k] = db
+		global.sqlPool[k] = c.NewPgConn(db)
 	}
 
 	return nil
 }
 
-func Init(opt *GlobalOptions) *types.AppError {
-	connMeta, connErr := conn.ReadTomlConnCfg(opt.ConnConf)
+func Init(opt *GlobalOptions) error {
+	var err error = nil
 
-	if connErr != nil {
-		return types.NewAppError(connErr, "read failed connection info file")
-	}
+	global.initOnce.Do(func() {
+		global.handleMetas = make([]handle.HandleMeta, 0, 10)
 
-	if pErr := initSqlPool(connMeta); pErr != nil {
-		return types.NewAppError(pErr, "init pools failed")
-	}
-
-	utils, utilsErr := handle.NewLoaderUtils(opt.HandleDir, opt.HandleType)
-	if utilsErr != nil {
-		return utilsErr
-	}
-
-	if utils.Size() <= 0 {
-		return types.NewAppError(types.ErrorAppNoData, "")
-	}
-
-	for {
-		m, mErr := utils.Next()
-		if mErr != nil {
-			return types.NewAppError(mErr, "utils Next method error")
+		connMeta, connErr := conn.ReadTomlConnCfg(opt.ConnConf)
+	
+		if connErr != nil {
+			err = types.NewAppError(connErr, "read failed connection info file")
+			return
 		}
-
-		if m == nil {
-			break
+	
+		if pErr := initSqlPool(connMeta); pErr != nil {
+			err = types.NewAppError(pErr, "init pools failed")
+			return
 		}
+	
+		utils, utilsErr := handle.NewLoaderUtils(opt.HandleDir, opt.HandleType)
+		if utilsErr != nil {
+			err = utilsErr
+			return
+		}
+	
+		if utils.Size() <= 0 {
+			err = types.NewAppError(types.ErrorAppNoData, "")
+			return
+		}
+		
+		for {
+			m, mErr := utils.Next()
+			if mErr != nil {
+				err = types.NewAppError(mErr, "utils Next method error")
+				return
+			}
+	
+			if m == nil {
+				break
+			}
+	
+			_, exists := global.handleMetasIdx[m.Data.Url]
+			if exists {
+				err = types.NewAppError(types.ErrorAppDuplicate, "exists handle url %s", m.Data.Url)
+				return
+			}
+			
+			global.handleMetas = append(global.handleMetas, *m)
+			global.handleMetasIdx[m.Data.Url] = len(global.handleMetas)
+		}
+	})
 
-		global.handles = append(global.handles, m)
-	}
-
-	return nil
+	return err
 }

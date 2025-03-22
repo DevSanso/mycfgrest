@@ -1,4 +1,4 @@
-package httpd
+package httph
 
 import (
 	"encoding/json"
@@ -9,7 +9,7 @@ import (
 	"mycfgrest/types"
 )
 
-func parsingBody(body []byte, m map[string]any) *types.AppError {
+func parsingBody(body []byte, m map[string]any) error {
 	if err := json.Unmarshal(body, m); err != nil {
 		return types.NewAppError(err, "parsing body is error")
 	}
@@ -17,7 +17,7 @@ func parsingBody(body []byte, m map[string]any) *types.AppError {
 	return nil
 }
 
-func getRequestUrlData(h *httpHandle, r *http.Request, pVal *types.ParsingMap) *types.AppError {
+func getRequestUrlData(h *HttpHandle, r *http.Request, pVal *types.ParsingMap) error {
 	qUrl := r.URL.Query()
 
 	for k, val := range h.meta.Data.Request.QueryString {
@@ -31,7 +31,7 @@ func getRequestUrlData(h *httpHandle, r *http.Request, pVal *types.ParsingMap) *
 	return nil
 }
 
-func getRequestBodyData(h *httpHandle, r *http.Request, pVal *types.ParsingMap) *types.AppError {
+func getRequestBodyData(h *HttpHandle, r *http.Request, pVal *types.ParsingMap) error {
 	cLen := r.Header.Get("Content-Length")
 	if cLen == "" {
 		return types.NewAppError(types.ErrorAppHttpBadRequest, "content-length is not setting")

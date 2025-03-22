@@ -22,11 +22,11 @@ func convertPgTypeToSysType(cts []*sql.ColumnType) ([]types.ParsingValueDataType
 	for i, ct := range cts {
 		switch ct.Name() {
 		case "INT2", "INT4", "INT8":
-			ret[i]=types.INT
+			ret[i] = types.INT
 		case "CHAR", "VARCHAR":
-			ret[i]=types.STRING
+			ret[i] = types.STRING
 		case "FLOAT4", "FLOAT8":
-			ret[i] =types.DOUBLE
+			ret[i] = types.DOUBLE
 		default:
 			return nil, types.NewAppError(types.ErrorAppNoData, "not support this pg type [%s]", ct.Name())
 		}
@@ -48,7 +48,7 @@ func (pc *pgConn) runEach(ctx context.Context, cmd string, prefix string, fetch 
 	}
 	defer rows.Close()
 
-	cName, cErr := rows.Columns() 
+	cName, cErr := rows.Columns()
 	if cErr != nil {
 		return types.NewAppError(cErr, "get failed cols names")
 	}
@@ -57,7 +57,7 @@ func (pc *pgConn) runEach(ctx context.Context, cmd string, prefix string, fetch 
 	if ctErr != nil {
 		return types.NewAppError(ctErr, "get failed column types")
 	}
-	
+
 	sysType, convertErr := convertPgTypeToSysType(ct)
 
 	if convertErr != nil {
@@ -75,11 +75,11 @@ func (pc *pgConn) runEach(ctx context.Context, cmd string, prefix string, fetch 
 		datas := colBuffer.GetDatas()
 
 		for idx := range datas {
-			if err := output.Set(rowIdx, strings.Join([]string{prefix, strconv.Itoa(idx), cName[idx]},"."), datas[idx], sysType[idx]); err != nil {
+			if err := output.Set(rowIdx, strings.Join([]string{prefix, strconv.Itoa(idx), cName[idx]}, "."), datas[idx], sysType[idx]); err != nil {
 				return types.NewAppError(err, "failed result set push data [name:%s] [idx:%d]", cName[idx], rowIdx)
 			}
 		}
-		rowIdx += 1	
+		rowIdx += 1
 	}
 
 	return nil
@@ -101,16 +101,12 @@ func (pc *pgConn) Run(ctx context.Context, cmd string, param *types.ParsingMap) 
 		}
 		idx += 1
 	}
-	
+
 	return output, nil
 }
 
-func NewPgConn() (Conn, error) {
-	if db, err := sql.Open("postgres", ""); err != nil {
-		return nil, types.NewAppError(err, "failed pg connection")
-	} else {
-		db.SetMaxIdleConns(1)
-		db.SetMaxOpenConns(1)
-		return &pgConn{db: db}, nil
-	}
+func NewPgConn(db *sql.DB) SQLConn {
+	db.SetMaxIdleConns(1)
+	db.SetMaxOpenConns(1)
+	return &pgConn{db: db}
 }
