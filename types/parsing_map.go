@@ -39,6 +39,25 @@ func (o *ParsingMap) chkMemAndallocColumnMap(useIdx int) {
 		o.mapDatas = append(o.mapDatas, make(map[string]_ParsingMapPair))
 	}
 }
+func (o *ParsingMap) OverReadFrom(src *ParsingMap) error {
+	if atomic.LoadInt32(&o.state) != _ParsingMapStateNone  || atomic.LoadInt32(&src.state) != _ParsingMapStateNone{
+		return NewAppError(ErrorAppLock, "")
+	}
+
+	atomic.StoreInt32(&o.state, _ParsingMapStatePush)
+	atomic.StoreInt32(&src.state, _ParsingMapPairGet)
+	o.chkMemAndallocColumnMap(len(src.mapDatas))
+	for idx := range src.mapDatas {
+		for key, pair := range src.mapDatas[idx] {
+			src.mapDatas[idx][key] = pair
+		}
+	}
+
+	atomic.StoreInt32(&src.state, _ParsingMapStateNone)
+	atomic.StoreInt32(&o.state, _ParsingMapStatePush)
+
+	return nil
+}
 
 func (o *ParsingMap) Get(idx int, key string) (data any, dataType ParsingValueDataType, err error) {
 	if atomic.LoadInt32(&o.state) != _ParsingMapStateNone {

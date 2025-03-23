@@ -1,9 +1,13 @@
 package httph
 
 import (
+	"context"
 	"net/http"
 	"slices"
+	"strconv"
+	"unsafe"
 
+	"mycfgrest/global"
 	"mycfgrest/loader/handle"
 	"mycfgrest/types"
 )
@@ -32,15 +36,22 @@ func (h *HttpHandle) parsingHttpBody(r *http.Request) (*types.ParsingMap, error)
 	return ret,nil
 }
 
-func (h *HttpHandle)loadData(param *types.ParsingMap) error {
+func (h *HttpHandle)loadData(ctx  context.Context, paramAndOutput *types.ParsingMap) error {
 	loadMeta := h.meta.Data.Load
 	loadLen := len(loadMeta)
 
 	for idx :=0; idx < loadLen; idx += 1 {
-		//lm := loadMeta[strconv.Itoa(idx)]
+		lm := loadMeta[strconv.Itoa(idx)]
 		
-		//_ := global.GetSqlPool(lm.LoadName, context.Background())
-		
+		pool := global.GetSqlPool(lm.LoadName, ctx)
+		query := lm.Command
+		if output,err := pool.Run(ctx, query, paramAndOutput); err != nil {
+			return types.NewAppError(err, "")
+		} else {
+			if err = paramAndOutput.OverReadFrom(output); err != nil {
+				return types.NewAppError(err, "")
+			}
+		}
 	}
 
 	return nil
@@ -51,12 +62,32 @@ func (h *HttpHandle)HandleRun(w http.ResponseWriter, r *http.Request) error {
 		return types.NewAppError(err, "")
 	}
 
-	/**if param, err := h.parsingHttpBody(r); err != nil {
+	var output *types.ParsingMap = nil
+	if param, err := h.parsingHttpBody(r); err != nil {
 		return types.NewAppError(err, "")
 	} else {
-		
-	}*/
+		output = param		
+	}
 
+	if err := h.loadData(r.Context(), output); err != nil {
+		return types.NewAppError(err, "")
+	}
+
+	response := ""
+	if fetcher, err := output.Fetch(); err != nil {
+		return types.NewAppError(err, "")
+	} else {
+		if res, createResErr := CreateResponseFromTemplate(h.meta.Data.Response.Template, fetcher); createResErr != nil {
+			return types.NewAppError(createResErr, "")
+		} else {
+			response = res
+		}
+	}
+
+	resHeader := w.Header()
+	resHeader.Set("Content-Length", strconv.Itoa(len(response)))
+	resHeader.Set("Content-Type", h.meta.Data.Response.ContentType)
+	w.Write(unsafe.Slice(unsafe.StringData(response), len(response)))
 
 	return nil
 }

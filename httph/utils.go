@@ -1,10 +1,13 @@
 package httph
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
-	"strings"
+	"slices"
 	"strconv"
+	"strings"
 
 	"mycfgrest/types"
 )
@@ -81,4 +84,50 @@ func getRequestBodyData(h *HttpHandle, r *http.Request, pVal *types.ParsingMap) 
 	}
 
 	return nil
+}
+
+func CreateResponseFromTemplate(template string, p *types.ParsingMapFetch) (res string, err error) {
+	keys,vals, _, err := p.GetData()
+	if err != nil {
+		return "", types.NewAppError(err, "parsing value is fetch error")
+	}
+
+	if keys == nil || vals == nil {
+		return "", types.NewAppError(types.ErrorAppSys, "no data")
+	}
+	
+	var buffer bytes.Buffer
+	lastIndex := 0
+
+	for i := 0; i < len(template); i++ {
+		if template[i] == '#' {
+			if i+1 < len(template) && template[i+1] == '#' {
+				// '##' 처리
+				buffer.WriteString(template[lastIndex:i])
+				buffer.WriteByte('#')
+				i++
+				lastIndex = i + 1
+			} else if i+1 < len(template) && template[i+1] == '{' {
+				// '#{...}' 처리
+				end := strings.IndexByte(template[i:], '}')
+				if end != -1 {
+					end += i
+					key := ""
+
+					key = template[i+2 : end]
+					
+					if idx := slices.Index(keys, key); idx != -1 {
+						buffer.WriteString(template[lastIndex:i])
+						buffer.WriteString(fmt.Sprint(vals[idx]))
+
+						i = end
+						lastIndex = end + 1
+					}
+				}
+			}
+		}
+	}
+	buffer.WriteString(template[lastIndex:])
+
+	return buffer.String(), nil
 }
