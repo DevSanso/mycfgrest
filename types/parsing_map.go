@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"sync/atomic"
 )
 
@@ -35,7 +36,7 @@ func NewParsingMap() *ParsingMap {
 }
 
 func (o *ParsingMap) chkMemAndallocColumnMap(useIdx int) {
-	for len(o.mapDatas) < useIdx {
+	for len(o.mapDatas) < useIdx + 1 {
 		o.mapDatas = append(o.mapDatas, make(map[string]_ParsingMapPair))
 	}
 }
@@ -82,7 +83,7 @@ func (o *ParsingMap) Get(idx int, key string) (data any, dataType ParsingValueDa
 }
 
 func (o *ParsingMap) Set(idx int, key string, val any, valType ParsingValueDataType) error {
-	if atomic.LoadInt32(&o.state) == _ParsingMapStateNone {
+	if atomic.LoadInt32(&o.state) != _ParsingMapStateNone {
 		return NewAppError(ErrorAppLock, "Map is using fetch state")
 	}
 
@@ -90,11 +91,14 @@ func (o *ParsingMap) Set(idx int, key string, val any, valType ParsingValueDataT
 	
 	o.chkMemAndallocColumnMap(idx)
 
+	if len(o.mapDatas) < idx {
+		panic(fmt.Sprintf("ParsingMap idx[%d] is over mapData[%d]", idx, len(o.mapDatas)))
+	}
+
 	if chk,ok := o.mapDatas[idx][key]; ok {
 		atomic.StoreInt32(&o.state, _ParsingMapStateNone)
 		return NewAppError(ErrorAppDuplicate,"already exists data, key(%s) idx(%d) type(%s)", key, idx, chk.ValType)
 	}
-
 
 	o.mapDatas[idx][key] = _ParsingMapPair{Val: val, ValType: valType}
 	atomic.StoreInt32(&o.state, _ParsingMapStateNone)
@@ -106,7 +110,7 @@ func (o *ParsingMap) Fetch() (*ParsingMapFetch,error) {
 		return nil, NewAppError(ErrorAppSys, "ParsingMap Fetch failed state:%d", state)
 	}
 	atomic.StoreInt32(&o.state, _ParsingMapStateFetch)
-	
+
 	return &ParsingMapFetch{
 		mapPtr: o,
 		currentIdx: 0,
@@ -185,12 +189,17 @@ func (f *ParsingMapFetch) GetData() (key []string, val []any, valType []ParsingV
 	if state := atomic.LoadInt32(&f.mapPtr.state);state != _ParsingMapStateFetch {
 		return nil, nil, nil, NewAppError(ErrorAppSys, "state not fetch, state=%d", state)
 	}
-
-	key = make([]string, f.endIdx)
-	val = make([]any, f.endIdx)
-	valType = make([]ParsingValueDataType, f.endIdx)
+	allocSize := f.endIdx + 1
+	key = make([]string, allocSize)
+	val = make([]any, allocSize)
+	valType = make([]ParsingValueDataType, allocSize)
 
 	fetchIdx := 0
+
+	if f.currentIdx >= len(f.mapPtr.mapDatas) {
+		panic(fmt.Sprintf("overflow currentIdx[%d] mapData size[%d]", f.currentIdx, len(f.mapPtr.mapDatas)))
+	}
+	
 	for k, v := range f.mapPtr.mapDatas[f.currentIdx] {
 		key[fetchIdx] = k
 		val[fetchIdx] = v.Val

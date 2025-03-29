@@ -31,7 +31,7 @@ func makeErrMsg(origin error, fn string, file string, line int, msgFmt string, a
 		msg = origin.Error()
 	}
 
-	return fmt.Sprintf("(func:%.30s,file:%.16s:%d, origin:%.60s): %s",
+	return fmt.Sprintf("(func:%.128s,file:%.256s:%d, origin:%.60s): %s",
 		fn, file, line, msg, fmt.Sprintf(msgFmt, args...))
 }
 
